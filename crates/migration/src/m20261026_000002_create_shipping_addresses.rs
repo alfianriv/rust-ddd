@@ -22,8 +22,16 @@ impl MigrationTrait for Migration {
                 .col(ColumnDef::new(A::PostalCode).string_len(5).not_null())
                 .col(ColumnDef::new(A::Notes).string_len(255).null())
                 .col(ColumnDef::new(A::IsDefault).boolean().not_null())
-                .col(ColumnDef::new(A::CreatedAt).date_time().not_null())
-                .col(ColumnDef::new(A::UpdatedAt).date_time().not_null())
+                .col(
+                    ColumnDef::new(A::CreatedAt)
+                        .timestamp_with_time_zone()
+                        .not_null(),
+                )
+                .col(
+                    ColumnDef::new(A::UpdatedAt)
+                        .timestamp_with_time_zone()
+                        .not_null(),
+                )
                 .to_owned(),
         )
         .await?;
@@ -37,14 +45,11 @@ impl MigrationTrait for Migration {
         )
         .await?;
 
-        // At most one default per user, enforced by the DB: NULL for non-default rows,
-        // user_id for the default row, and UNIQUE ignores NULLs. Works on MySQL 8 + MariaDB.
+        // At most one default per user, enforced by the DB (Postgres partial unique index).
         m.get_connection()
             .execute_unprepared(
-                "ALTER TABLE shipping_addresses \
-                 ADD COLUMN default_owner BINARY(16) \
-                     AS (IF(is_default, user_id, NULL)) STORED, \
-                 ADD UNIQUE INDEX uq_shipping_addresses_one_default (default_owner)",
+                "CREATE UNIQUE INDEX uq_shipping_addresses_one_default \
+                 ON shipping_addresses (user_id) WHERE is_default",
             )
             .await?;
         Ok(())

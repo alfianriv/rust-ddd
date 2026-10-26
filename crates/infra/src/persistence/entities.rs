@@ -34,7 +34,6 @@ pub mod users {
 pub mod shipping_addresses {
     use sea_orm::entity::prelude::*;
 
-    /// `default_owner` (generated column) is intentionally not mapped; it only backs a unique index.
     #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
     #[sea_orm(table_name = "shipping_addresses")]
     pub struct Model {

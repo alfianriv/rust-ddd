@@ -22,8 +22,16 @@ impl MigrationTrait for Migration {
                         .string_len(255)
                         .not_null(),
                 )
-                .col(ColumnDef::new(Users::CreatedAt).date_time().not_null())
-                .col(ColumnDef::new(Users::UpdatedAt).date_time().not_null())
+                .col(
+                    ColumnDef::new(Users::CreatedAt)
+                        .timestamp_with_time_zone()
+                        .not_null(),
+                )
+                .col(
+                    ColumnDef::new(Users::UpdatedAt)
+                        .timestamp_with_time_zone()
+                        .not_null(),
+                )
                 .to_owned(),
         )
         .await

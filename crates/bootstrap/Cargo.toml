@@ -1,0 +1,21 @@
+# Config + wiring shared by every app: build the Container once, apps only call use cases.
+[package]
+name = "bootstrap"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+app-core.workspace = true
+dotenvy.workspace = true
+infra.workspace = true
+sea-orm.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+migration.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true

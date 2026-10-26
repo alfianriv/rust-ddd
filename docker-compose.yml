@@ -1,16 +1,15 @@
 # Local dev dependencies only. App deployment: see deploy/.
 services:
-  mysql:
-    image: mysql:8.4
+  postgres:
+    image: postgres:17-alpine
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: app
-      MYSQL_USER: app
-      MYSQL_PASSWORD: app
-    ports: ["3306:3306"]
-    volumes: [mysql-data:/var/lib/mysql]
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    ports: ["5432:5432"]
+    volumes: [pg-data:/var/lib/postgresql/data]
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      test: ["CMD", "pg_isready", "-U", "app"]
       interval: 5s
       retries: 10
 
@@ -19,4 +18,4 @@ services:
     ports: ["6379:6379"]
 
 volumes:
-  mysql-data:
+  pg-data:

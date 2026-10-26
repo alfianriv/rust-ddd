@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 # Apps (apis, apis-internal, reports) join here in later phases.
-members = ["crates/core", "crates/infra", "crates/migration"]
+members = ["crates/core", "crates/infra", "crates/migration", "crates/bootstrap"]
 
 [workspace.package]
 version = "0.1.0"
@@ -10,21 +10,29 @@ publish = false
 
 [workspace.dependencies]
 app-core = { path = "crates/core" }
+bootstrap = { path = "crates/bootstrap" }
 infra = { path = "crates/infra" }
 migration = { path = "crates/migration" }
 
+anyhow = "1"
+argon2 = "0.6"
 async-trait = "0.1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+dotenvy = "0.15"
+jsonwebtoken = { version = "11", default-features = false, features = ["rust_crypto"] }
 sea-orm = { version = "2.0", default-features = false, features = [
     "macros",
     "with-chrono",
     "with-uuid",
-    "sqlx-mysql",
+    "sqlx-postgres",
     "runtime-tokio-rustls",
 ] }
-sea-orm-migration = { version = "2.0", features = ["sqlx-mysql", "runtime-tokio-rustls"] }
-chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+sea-orm-migration = { version = "2.0", features = ["sqlx-postgres", "runtime-tokio-rustls"] }
+serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 uuid = { version = "1", features = ["v7"] }
 
 [workspace.lints.rust]
@@ -32,3 +40,9 @@ unsafe_code = "forbid"
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
+
+# Unoptimized argon2 takes seconds per hash; keep dev/test builds usable.
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3

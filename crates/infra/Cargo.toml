@@ -7,8 +7,13 @@ publish.workspace = true
 
 [dependencies]
 app-core.workspace = true
+argon2.workspace = true
 async-trait.workspace = true
+chrono.workspace = true
+jsonwebtoken.workspace = true
 sea-orm.workspace = true
+serde.workspace = true
+tokio = { workspace = true, features = ["rt"] }
 
 [dev-dependencies]
 migration.workspace = true
