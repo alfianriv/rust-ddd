@@ -1,0 +1,18 @@
+# Adapters: implementations of app-core ports.
+[package]
+name = "infra"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+app-core.workspace = true
+async-trait.workspace = true
+sea-orm.workspace = true
+
+[dev-dependencies]
+migration.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true

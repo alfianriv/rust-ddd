@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 # Apps (apis, apis-internal, reports) join here in later phases.
-members = ["crates/core"]
+members = ["crates/core", "crates/infra", "crates/migration"]
 
 [workspace.package]
 version = "0.1.0"
@@ -10,8 +10,18 @@ publish = false
 
 [workspace.dependencies]
 app-core = { path = "crates/core" }
+infra = { path = "crates/infra" }
+migration = { path = "crates/migration" }
 
 async-trait = "0.1"
+sea-orm = { version = "2.0", default-features = false, features = [
+    "macros",
+    "with-chrono",
+    "with-uuid",
+    "sqlx-mysql",
+    "runtime-tokio-rustls",
+] }
+sea-orm-migration = { version = "2.0", features = ["sqlx-mysql", "runtime-tokio-rustls"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 thiserror = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
