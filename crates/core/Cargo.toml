@@ -1,0 +1,18 @@
+# Domain + use cases. Must NOT depend on axum, sea-orm, redis, bullmq, jwt, argon2, ...
+[package]
+name = "app-core" # `core` would shadow Rust's built-in core crate
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+
+[lints]
+workspace = true
