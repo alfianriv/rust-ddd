@@ -24,12 +24,13 @@ impl MigrationTrait for Migration {
                 .col(ColumnDef::new(A::IsDefault).boolean().not_null())
                 .col(ColumnDef::new(A::CreatedAt).date_time().not_null())
                 .col(ColumnDef::new(A::UpdatedAt).date_time().not_null())
+                // No ON DELETE CASCADE: MySQL forbids it on the base column of the stored
+                // generated column below. Deleting a user must delete their addresses first.
                 .foreign_key(
                     ForeignKey::create()
                         .name("fk_shipping_addresses_user")
                         .from(A::Table, A::UserId)
-                        .to(Users::Table, Users::Id)
-                        .on_delete(ForeignKeyAction::Cascade),
+                        .to(Users::Table, Users::Id),
                 )
                 .to_owned(),
         )
