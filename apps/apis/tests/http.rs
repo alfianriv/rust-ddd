@@ -20,8 +20,15 @@ async fn app() -> Option<Router> {
         eprintln!("skipped: set TEST_DATABASE_URL to run DB tests");
         return None;
     };
-    let db = sea_orm::Database::connect(&url).await.unwrap();
-    Migrator::up(&db, None).await.unwrap();
+    // Tests in this file run in parallel; migrating concurrently on a fresh DB races
+    // (both try to create seaql_migrations). Run it once, the others wait.
+    static MIGRATED: tokio::sync::OnceCell<()> = tokio::sync::OnceCell::const_new();
+    MIGRATED
+        .get_or_init(|| async {
+            let db = sea_orm::Database::connect(&url).await.unwrap();
+            Migrator::up(&db, None).await.unwrap();
+        })
+        .await;
     let cfg = Config {
         database: DatabaseConfig::Postgres { url },
         password_hasher: PasswordHasherConfig::Argon2,

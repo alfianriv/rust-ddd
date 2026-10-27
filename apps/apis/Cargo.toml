@@ -24,6 +24,7 @@ uuid = { workspace = true, features = ["serde"] }
 migration.workspace = true
 sea-orm.workspace = true
 serde_json.workspace = true
+tokio = { workspace = true, features = ["sync"] }
 tower.workspace = true
 
 [lints]
