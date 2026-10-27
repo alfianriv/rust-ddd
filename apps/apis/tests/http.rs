@@ -84,8 +84,8 @@ fn unique_email() -> String {
     format!("{}@test.local", uuid::Uuid::now_v7().simple())
 }
 
-/// Registers + logs in a fresh user, returns the access token.
-async fn signup(app: &Router) -> String {
+/// Registers + logs in a fresh user. Returns (access token, user id).
+async fn signup(app: &Router) -> (String, String) {
     let email = unique_email();
     let r = call(
         app,
@@ -105,7 +105,10 @@ async fn signup(app: &Router) -> String {
     )
     .await;
     assert_eq!(r.status, StatusCode::OK);
-    r.body["access_token"].as_str().unwrap().to_string()
+    (
+        r.body["access_token"].as_str().unwrap().to_string(),
+        r.body["user"]["id"].as_str().unwrap().to_string(),
+    )
 }
 
 fn address(label: &str) -> Value {
@@ -129,15 +132,20 @@ async fn health_docs_and_request_id() {
     let spec = call(&app, Method::GET, "/openapi.json", None, None)
         .await
         .body;
+    let paths = spec["paths"].as_object().unwrap();
     for path in [
         "/auth/register",
         "/auth/login",
-        "/me",
-        "/me/addresses",
-        "/me/addresses/{id}",
-        "/me/addresses/{id}/default",
+        "/users/{user_id}",
+        "/users/{user_id}/addresses",
+        "/users/{user_id}/addresses/{id}",
+        "/users/{user_id}/addresses/{id}/default",
     ] {
-        assert!(spec["paths"][path].is_object(), "missing {path} in spec");
+        assert!(paths.contains_key(path), "missing {path} in spec");
+    }
+    for (path, ops) in paths {
+        assert!(!path.contains("/me"), "no /me routes: {path}");
+        assert!(ops.get("patch").is_none(), "no PATCH: {path}");
     }
     assert_eq!(
         spec["components"]["securitySchemes"]["bearer"]["scheme"],
@@ -150,7 +158,7 @@ async fn health_docs_and_request_id() {
 }
 
 #[tokio::test]
-async fn auth_and_profile() {
+async fn auth_and_user() {
     let Some(app) = app().await else { return };
     let email = unique_email();
     let reg = json!({"email": email, "name": "Alfian", "password": "secret123"});
@@ -176,14 +184,8 @@ async fn auth_and_profile() {
         (StatusCode::CONFLICT, Some("conflict"))
     );
 
-    let r = call(
-        &app,
-        Method::POST,
-        "/auth/register",
-        None,
-        Some(json!({"email": "nope", "name": "A", "password": "secret123"})),
-    )
-    .await;
+    let bad_email = json!({"email": "nope", "name": "A", "password": "secret123"});
+    let r = call(&app, Method::POST, "/auth/register", None, Some(bad_email)).await;
     assert_eq!(
         (r.status, r.body["error"]["code"].as_str()),
         (StatusCode::UNPROCESSABLE_ENTITY, Some("validation_error"))
@@ -202,42 +204,32 @@ async fn auth_and_profile() {
         (StatusCode::BAD_REQUEST, Some("bad_request"))
     );
 
-    let r = call(
-        &app,
-        Method::POST,
-        "/auth/login",
-        None,
-        Some(json!({"email": email, "password": "wrong-pass"})),
-    )
-    .await;
+    let wrong = json!({"email": email, "password": "wrong-pass"});
+    let r = call(&app, Method::POST, "/auth/login", None, Some(wrong)).await;
     assert_eq!(
         (r.status, r.body["error"]["code"].as_str()),
         (StatusCode::UNAUTHORIZED, Some("unauthorized"))
     );
 
-    let r = call(
-        &app,
-        Method::POST,
-        "/auth/login",
-        None,
-        Some(json!({"email": email, "password": "secret123"})),
-    )
-    .await;
+    let ok = json!({"email": email, "password": "secret123"});
+    let r = call(&app, Method::POST, "/auth/login", None, Some(ok)).await;
     assert_eq!(r.body["token_type"], "Bearer");
+    assert_eq!(r.body["user"]["id"], registered["id"]);
     let token = r.body["access_token"].as_str().unwrap().to_string();
+    let me = format!("/users/{}", registered["id"].as_str().unwrap());
 
     assert_eq!(
-        call(&app, Method::GET, "/me", None, None).await.status,
+        call(&app, Method::GET, &me, None, None).await.status,
         StatusCode::UNAUTHORIZED
     );
     assert_eq!(
-        call(&app, Method::GET, "/me", Some("garbage"), None)
+        call(&app, Method::GET, &me, Some("garbage"), None)
             .await
             .status,
         StatusCode::UNAUTHORIZED
     );
 
-    let r = call(&app, Method::GET, "/me", Some(&token), None).await;
+    let r = call(&app, Method::GET, &me, Some(&token), None).await;
     assert_eq!(r.status, StatusCode::OK);
     assert_eq!(
         r.body, registered,
@@ -246,8 +238,8 @@ async fn auth_and_profile() {
 
     let r = call(
         &app,
-        Method::PATCH,
-        "/me",
+        Method::PUT,
+        &me,
         Some(&token),
         Some(json!({"name": " Budi "})),
     )
@@ -256,35 +248,51 @@ async fn auth_and_profile() {
         (r.status, r.body["name"].as_str()),
         (StatusCode::OK, Some("Budi"))
     );
+
+    // Ownership: a valid token for someone else's user_id -> 403, nothing changes.
+    let (other_token, _) = signup(&app).await;
+    let r = call(&app, Method::GET, &me, Some(&other_token), None).await;
+    assert_eq!(
+        (r.status, r.body["error"]["code"].as_str()),
+        (StatusCode::FORBIDDEN, Some("forbidden"))
+    );
+    let r = call(
+        &app,
+        Method::PUT,
+        &me,
+        Some(&other_token),
+        Some(json!({"name": "Hacked"})),
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::FORBIDDEN);
+    let r = call(&app, Method::GET, &me, Some(&token), None).await;
+    assert_eq!(r.body["name"], "Budi");
+
+    let r = call(&app, Method::GET, "/users/not-a-uuid", Some(&token), None).await;
+    assert_eq!(r.status, StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
 async fn shipping_addresses() {
     let Some(app) = app().await else { return };
-    let token = signup(&app).await;
+    let (token, user_id) = signup(&app).await;
     let t = Some(token.as_str());
+    let base = format!("/users/{user_id}/addresses");
 
-    let a = call(
-        &app,
-        Method::POST,
-        "/me/addresses",
-        t,
-        Some(address("Rumah")),
-    )
-    .await;
+    let a = call(&app, Method::POST, &base, t, Some(address("Rumah"))).await;
     assert_eq!(a.status, StatusCode::CREATED, "{}", a.body);
     assert_eq!(
         (a.body["is_default"].as_bool(), a.body["phone"].as_str()),
         (Some(true), Some("081234567890"))
     );
-    let a_id = a.body["id"].as_str().unwrap().to_string();
+    let a_url = format!("{base}/{}", a.body["id"].as_str().unwrap());
 
     let mut kantor = address("Kantor");
     kantor["is_default"] = json!(true);
-    let b = call(&app, Method::POST, "/me/addresses", t, Some(kantor)).await;
+    let b = call(&app, Method::POST, &base, t, Some(kantor)).await;
     assert_eq!(b.body["is_default"], true);
 
-    let list = call(&app, Method::GET, "/me/addresses", t, None).await.body;
+    let list = call(&app, Method::GET, &base, t, None).await.body;
     let labels: Vec<_> = list
         .as_array()
         .unwrap()
@@ -293,14 +301,7 @@ async fn shipping_addresses() {
         .collect();
     assert_eq!(labels, ["Kantor", "Rumah"]);
 
-    let r = call(
-        &app,
-        Method::PUT,
-        &format!("/me/addresses/{a_id}"),
-        t,
-        Some(address("Rumah Bogor")),
-    )
-    .await;
+    let r = call(&app, Method::PUT, &a_url, t, Some(address("Rumah Bogor"))).await;
     assert_eq!(
         (r.status, r.body["label"].as_str()),
         (StatusCode::OK, Some("Rumah Bogor"))
@@ -308,50 +309,40 @@ async fn shipping_addresses() {
 
     let mut bad = address("X");
     bad["postal_code"] = json!("123");
-    let r = call(&app, Method::POST, "/me/addresses", t, Some(bad)).await;
+    let r = call(&app, Method::POST, &base, t, Some(bad)).await;
     assert_eq!(r.status, StatusCode::UNPROCESSABLE_ENTITY);
 
-    let r = call(
-        &app,
-        Method::POST,
-        &format!("/me/addresses/{a_id}/default"),
-        t,
-        None,
-    )
-    .await;
-    assert_eq!(
-        (r.status, r.body["is_default"].as_bool()),
-        (StatusCode::OK, Some(true))
-    );
+    let default_url = format!("{a_url}/default");
+    for _ in 0..2 {
+        // PUT is idempotent: second call is a no-op with the same result.
+        let r = call(&app, Method::PUT, &default_url, t, None).await;
+        assert_eq!(
+            (r.status, r.body["is_default"].as_bool()),
+            (StatusCode::OK, Some(true))
+        );
+    }
 
-    // Another user sees 404, not 403: existence of others' data is not revealed.
-    let other = signup(&app).await;
-    let r = call(
-        &app,
-        Method::DELETE,
-        &format!("/me/addresses/{a_id}"),
-        Some(&other),
-        None,
-    )
-    .await;
+    let (other_token, other_id) = signup(&app).await;
+    let o = Some(other_token.as_str());
+    // Someone else's user_id in the path -> 403 before touching any address.
+    for (method, url) in [(Method::GET, base.clone()), (Method::DELETE, a_url.clone())] {
+        let r = call(&app, method, &url, o, None).await;
+        assert_eq!(r.status, StatusCode::FORBIDDEN, "{url}");
+    }
+    // Own user_id but someone else's address id -> 404 (scoped lookup).
+    let foreign = a_url.replace(&user_id, &other_id);
+    let r = call(&app, Method::DELETE, &foreign, o, None).await;
     assert_eq!(r.status, StatusCode::NOT_FOUND);
 
-    let r = call(&app, Method::DELETE, "/me/addresses/not-a-uuid", t, None).await;
+    let r = call(&app, Method::DELETE, &format!("{base}/not-a-uuid"), t, None).await;
     assert_eq!(
         (r.status, r.body["error"]["code"].as_str()),
         (StatusCode::BAD_REQUEST, Some("bad_request"))
     );
 
-    let r = call(
-        &app,
-        Method::DELETE,
-        &format!("/me/addresses/{a_id}"),
-        t,
-        None,
-    )
-    .await;
+    let r = call(&app, Method::DELETE, &a_url, t, None).await;
     assert_eq!(r.status, StatusCode::NO_CONTENT);
-    let list = call(&app, Method::GET, "/me/addresses", t, None).await.body;
+    let list = call(&app, Method::GET, &base, t, None).await.body;
     assert_eq!(list.as_array().unwrap().len(), 1);
     assert_eq!(
         list[0]["is_default"], true,

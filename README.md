@@ -57,9 +57,13 @@ cargo run -p apis                     # http://localhost:8080, docs at /docs
 | GET | `/health` | - |
 | POST | `/auth/register` | - |
 | POST | `/auth/login` | - |
-| GET, PATCH | `/me` | Bearer |
-| GET, POST | `/me/addresses` | Bearer |
-| PUT, DELETE | `/me/addresses/{id}` | Bearer |
-| POST | `/me/addresses/{id}/default` | Bearer |
+| GET, PUT | `/users/{user_id}` | Bearer, owner |
+| GET, POST | `/users/{user_id}/addresses` | Bearer, owner |
+| PUT, DELETE | `/users/{user_id}/addresses/{id}` | Bearer, owner |
+| PUT | `/users/{user_id}/addresses/{id}/default` | Bearer, owner |
+
+Conventions: no `PATCH` (updates are full-replace `PUT`), no `/me` routes (resources are addressed by id).
+"owner" = `OwnedUser` extractor: `user_id` must be the caller (401 no token, 403 someone else's id).
+An address id that isn't under that user returns 404.
 
 Errors are always `{"error": {"code", "message"}}`. OpenAPI spec: `/openapi.json`, UI: `/docs`.

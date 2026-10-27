@@ -12,5 +12,5 @@ pub fn routes() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(register))
         .routes(routes!(login))
-        .routes(routes!(get_me, update_me))
+        .routes(routes!(get_user, update_user))
 }

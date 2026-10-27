@@ -1,11 +1,11 @@
 use axum::extract::State;
 use axum::http::StatusCode;
 
-use super::dto::{LoginDto, RegisterDto, UpdateProfileDto};
+use super::dto::{LoginDto, RegisterDto, UpdateUserDto};
 use super::response::{LoginResponse, UserResponse};
 use crate::AppState;
 use crate::error::{ApiError, ErrorBody};
-use crate::extract::{AuthUser, Json};
+use crate::extract::{Json, OwnedUser};
 
 #[utoipa::path(post, path = "/auth/register", tag = "auth", request_body = RegisterDto,
     responses(
@@ -23,7 +23,7 @@ pub async fn register(
 
 #[utoipa::path(post, path = "/auth/login", tag = "auth", request_body = LoginDto,
     responses(
-        (status = OK, body = LoginResponse),
+        (status = OK, description = "`user.id` is the `user_id` for `/users/{user_id}` routes", body = LoginResponse),
         (status = UNAUTHORIZED, description = "Wrong email or password", body = ErrorBody),
     ))]
 pub async fn login(
@@ -34,31 +34,35 @@ pub async fn login(
     Ok(Json(out.into()))
 }
 
-#[utoipa::path(get, path = "/me", tag = "me", security(("bearer" = [])),
+#[utoipa::path(get, path = "/users/{user_id}", tag = "users", security(("bearer" = [])),
+    params(("user_id" = uuid::Uuid, Path, description = "Must be the caller's own id")),
     responses(
         (status = OK, body = UserResponse),
         (status = UNAUTHORIZED, body = ErrorBody),
+        (status = FORBIDDEN, description = "Not your user_id", body = ErrorBody),
     ))]
-pub async fn get_me(
+pub async fn get_user(
     State(c): State<AppState>,
-    AuthUser(me): AuthUser,
+    OwnedUser(user): OwnedUser,
 ) -> Result<Json<UserResponse>, ApiError> {
-    let user = c.get_user.execute(me).await?;
+    let user = c.get_user.execute(user).await?;
     Ok(Json(user.into()))
 }
 
-#[utoipa::path(patch, path = "/me", tag = "me", security(("bearer" = [])),
-    request_body = UpdateProfileDto,
+#[utoipa::path(put, path = "/users/{user_id}", tag = "users", security(("bearer" = [])),
+    params(("user_id" = uuid::Uuid, Path, description = "Must be the caller's own id")),
+    request_body = UpdateUserDto,
     responses(
         (status = OK, body = UserResponse),
         (status = UNAUTHORIZED, body = ErrorBody),
+        (status = FORBIDDEN, description = "Not your user_id", body = ErrorBody),
         (status = UNPROCESSABLE_ENTITY, body = ErrorBody),
     ))]
-pub async fn update_me(
+pub async fn update_user(
     State(c): State<AppState>,
-    AuthUser(me): AuthUser,
-    Json(dto): Json<UpdateProfileDto>,
+    OwnedUser(user): OwnedUser,
+    Json(dto): Json<UpdateUserDto>,
 ) -> Result<Json<UserResponse>, ApiError> {
-    let user = c.update_profile.execute(me, &dto.name).await?;
+    let user = c.update_profile.execute(user, &dto.name).await?;
     Ok(Json(user.into()))
 }

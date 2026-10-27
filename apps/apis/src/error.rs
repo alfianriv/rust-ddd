@@ -10,6 +10,8 @@ pub enum ApiError {
     Domain(DomainError),
     /// Malformed request (bad JSON, bad path param). Message comes from axum.
     BadRequest(String),
+    /// Authenticated, but the resource belongs to someone else.
+    Forbidden,
 }
 
 impl From<DomainError> for ApiError {
@@ -25,7 +27,7 @@ pub struct ErrorBody {
 
 #[derive(Serialize, ToSchema)]
 pub struct ErrorDetail {
-    /// validation_error | not_found | conflict | unauthorized | bad_request | internal_error
+    /// validation_error | not_found | conflict | unauthorized | forbidden | bad_request | internal_error
     code: &'static str,
     message: String,
 }
@@ -34,6 +36,7 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, code, message) = match self {
             Self::BadRequest(m) => (StatusCode::BAD_REQUEST, "bad_request", m),
+            Self::Forbidden => (StatusCode::FORBIDDEN, "forbidden", "forbidden".into()),
             Self::Domain(e) => match e {
                 DomainError::Validation(m) => {
                     (StatusCode::UNPROCESSABLE_ENTITY, "validation_error", m)
