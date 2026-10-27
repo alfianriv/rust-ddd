@@ -82,14 +82,8 @@ impl ShippingAddressRepository for FakeAddresses {
         list.sort_by_key(|a| std::cmp::Reverse((a.is_default, a.id.0)));
         Ok(list)
     }
-    async fn find_for_user(&self, user: UserId, id: AddressId) -> Result<Option<ShippingAddress>> {
-        Ok(self
-            .0
-            .lock()
-            .unwrap()
-            .iter()
-            .find(|a| a.user_id == user && a.id == id)
-            .cloned())
+    async fn find_by_id(&self, id: AddressId) -> Result<Option<ShippingAddress>> {
+        Ok(self.0.lock().unwrap().iter().find(|a| a.id == id).cloned())
     }
     async fn count_by_user(&self, user: UserId) -> Result<usize> {
         Ok(self

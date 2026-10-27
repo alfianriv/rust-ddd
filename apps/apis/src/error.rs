@@ -10,8 +10,6 @@ pub enum ApiError {
     Domain(DomainError),
     /// Malformed request (bad JSON, bad path param). Message comes from axum.
     BadRequest(String),
-    /// Authenticated, but the resource belongs to someone else.
-    Forbidden,
 }
 
 impl From<DomainError> for ApiError {
@@ -36,7 +34,6 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, code, message) = match self {
             Self::BadRequest(m) => (StatusCode::BAD_REQUEST, "bad_request", m),
-            Self::Forbidden => (StatusCode::FORBIDDEN, "forbidden", "forbidden".into()),
             Self::Domain(e) => match e {
                 DomainError::Validation(m) => {
                     (StatusCode::UNPROCESSABLE_ENTITY, "validation_error", m)
@@ -46,6 +43,7 @@ impl IntoResponse for ApiError {
                 DomainError::Unauthorized => {
                     (StatusCode::UNAUTHORIZED, "unauthorized", e.to_string())
                 }
+                DomainError::Forbidden => (StatusCode::FORBIDDEN, "forbidden", e.to_string()),
                 DomainError::Infra(detail) => {
                     // Details go to logs only; clients get a generic message.
                     tracing::error!(error = %detail, "infrastructure error");

@@ -136,16 +136,21 @@ async fn health_docs_and_request_id() {
     for path in [
         "/auth/register",
         "/auth/login",
-        "/users/{user_id}",
-        "/users/{user_id}/addresses",
-        "/users/{user_id}/addresses/{id}",
-        "/users/{user_id}/addresses/{id}/default",
+        "/users/{id}",
+        "/addresses",
+        "/addresses/{id}",
+        "/addresses/{id}/default",
     ] {
         assert!(paths.contains_key(path), "missing {path} in spec");
     }
+    // Conventions: no /me, no PATCH, no nesting one feature under another.
     for (path, ops) in paths {
         assert!(!path.contains("/me"), "no /me routes: {path}");
         assert!(ops.get("patch").is_none(), "no PATCH: {path}");
+        assert!(
+            !(path.starts_with("/users/") && path.matches('/').count() > 2),
+            "no nested routes under /users: {path}"
+        );
     }
     assert_eq!(
         spec["components"]["securitySchemes"]["bearer"]["scheme"],
@@ -275,11 +280,16 @@ async fn auth_and_user() {
 #[tokio::test]
 async fn shipping_addresses() {
     let Some(app) = app().await else { return };
-    let (token, user_id) = signup(&app).await;
+    let (token, _) = signup(&app).await;
     let t = Some(token.as_str());
-    let base = format!("/users/{user_id}/addresses");
+    let base = "/addresses";
 
-    let a = call(&app, Method::POST, &base, t, Some(address("Rumah"))).await;
+    assert_eq!(
+        call(&app, Method::GET, base, None, None).await.status,
+        StatusCode::UNAUTHORIZED
+    );
+
+    let a = call(&app, Method::POST, base, t, Some(address("Rumah"))).await;
     assert_eq!(a.status, StatusCode::CREATED, "{}", a.body);
     assert_eq!(
         (a.body["is_default"].as_bool(), a.body["phone"].as_str()),
@@ -289,10 +299,10 @@ async fn shipping_addresses() {
 
     let mut kantor = address("Kantor");
     kantor["is_default"] = json!(true);
-    let b = call(&app, Method::POST, &base, t, Some(kantor)).await;
+    let b = call(&app, Method::POST, base, t, Some(kantor)).await;
     assert_eq!(b.body["is_default"], true);
 
-    let list = call(&app, Method::GET, &base, t, None).await.body;
+    let list = call(&app, Method::GET, base, t, None).await.body;
     let labels: Vec<_> = list
         .as_array()
         .unwrap()
@@ -309,7 +319,7 @@ async fn shipping_addresses() {
 
     let mut bad = address("X");
     bad["postal_code"] = json!("123");
-    let r = call(&app, Method::POST, &base, t, Some(bad)).await;
+    let r = call(&app, Method::POST, base, t, Some(bad)).await;
     assert_eq!(r.status, StatusCode::UNPROCESSABLE_ENTITY);
 
     let default_url = format!("{a_url}/default");
@@ -322,16 +332,32 @@ async fn shipping_addresses() {
         );
     }
 
-    let (other_token, other_id) = signup(&app).await;
+    // Ownership comes from the JWT: another user gets 403 on every write, and their
+    // list never includes it.
+    let (other_token, _) = signup(&app).await;
     let o = Some(other_token.as_str());
-    // Someone else's user_id in the path -> 403 before touching any address.
-    for (method, url) in [(Method::GET, base.clone()), (Method::DELETE, a_url.clone())] {
-        let r = call(&app, method, &url, o, None).await;
-        assert_eq!(r.status, StatusCode::FORBIDDEN, "{url}");
+    for (method, url, body) in [
+        (Method::PUT, a_url.clone(), Some(address("Hacked"))),
+        (Method::PUT, default_url.clone(), None),
+        (Method::DELETE, a_url.clone(), None),
+    ] {
+        let r = call(&app, method, &url, o, body).await;
+        assert_eq!(
+            (r.status, r.body["error"]["code"].as_str()),
+            (StatusCode::FORBIDDEN, Some("forbidden")),
+            "{url}"
+        );
     }
-    // Own user_id but someone else's address id -> 404 (scoped lookup).
-    let foreign = a_url.replace(&user_id, &other_id);
-    let r = call(&app, Method::DELETE, &foreign, o, None).await;
+    let theirs = call(&app, Method::GET, base, o, None).await.body;
+    assert_eq!(theirs, json!([]));
+    let r = call(&app, Method::PUT, &a_url, t, Some(address("Rumah Bogor"))).await;
+    assert_eq!(
+        r.body["label"], "Rumah Bogor",
+        "untouched by the other user"
+    );
+
+    let missing = format!("{base}/{}", uuid::Uuid::now_v7());
+    let r = call(&app, Method::DELETE, &missing, t, None).await;
     assert_eq!(r.status, StatusCode::NOT_FOUND);
 
     let r = call(&app, Method::DELETE, &format!("{base}/not-a-uuid"), t, None).await;
@@ -342,7 +368,7 @@ async fn shipping_addresses() {
 
     let r = call(&app, Method::DELETE, &a_url, t, None).await;
     assert_eq!(r.status, StatusCode::NO_CONTENT);
-    let list = call(&app, Method::GET, &base, t, None).await.body;
+    let list = call(&app, Method::GET, base, t, None).await.body;
     assert_eq!(list.as_array().unwrap().len(), 1);
     assert_eq!(
         list[0]["is_default"], true,

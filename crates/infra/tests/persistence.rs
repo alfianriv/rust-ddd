@@ -119,13 +119,25 @@ async fn addresses(db: &DatabaseConnection) {
     repo.update(&a2).await.unwrap(); // no-op update
     assert_eq!(
         update.execute(other.id, a.id, details("hack")).await.err(),
-        Some(DomainError::NotFound("shipping address"))
+        Some(DomainError::Forbidden)
     );
-    let stored = repo.find_for_user(owner.id, a.id).await.unwrap().unwrap();
+    let stored = repo.find_by_id(a.id).await.unwrap().unwrap();
     assert_eq!(stored.details.label, "A2");
     assert_eq!(stored.details.notes.as_deref(), Some("pagar hitam"));
     assert!(!stored.is_default);
-    assert!(repo.find_for_user(other.id, a.id).await.unwrap().is_none());
+    assert!(
+        repo.find_by_id(AddressId::generate())
+            .await
+            .unwrap()
+            .is_none()
+    );
+    // Repo writes stay scoped by user even if a caller skips the ownership check.
+    let mut hijack = stored.clone();
+    hijack.user_id = other.id;
+    assert_eq!(
+        repo.update(&hijack).await,
+        Err(DomainError::NotFound("shipping address"))
+    );
 
     // Failed set_default rolls back the clear.
     assert_eq!(

@@ -8,10 +8,16 @@ use crate::user::UserId;
 
 type Repo = Arc<dyn ShippingAddressRepository>;
 
+/// Ownership rule: missing -> NotFound, someone else's -> Forbidden.
 async fn find_owned(repo: &Repo, user: UserId, id: AddressId) -> Result<ShippingAddress> {
-    repo.find_for_user(user, id)
+    let address = repo
+        .find_by_id(id)
         .await?
-        .ok_or(DomainError::NotFound("shipping address"))
+        .ok_or(DomainError::NotFound("shipping address"))?;
+    if address.user_id != user {
+        return Err(DomainError::Forbidden);
+    }
+    Ok(address)
 }
 
 pub struct ListAddresses {
@@ -219,17 +225,21 @@ mod tests {
             .execute(owner, details("Rumah"), false)
             .await
             .unwrap();
-        let not_found = Some(DomainError::NotFound("shipping address"));
+        let forbidden = Some(DomainError::Forbidden);
 
         let upd = UpdateAddress::new(repo.clone());
         assert_eq!(
             upd.execute(intruder, addr.id, details("x")).await.err(),
-            not_found
+            forbidden
         );
         let del = DeleteAddress::new(repo.clone());
-        assert_eq!(del.execute(intruder, addr.id).await.err(), not_found);
+        assert_eq!(del.execute(intruder, addr.id).await.err(), forbidden);
         let set = SetDefaultAddress::new(repo.clone());
-        assert_eq!(set.execute(intruder, addr.id).await.err(), not_found);
+        assert_eq!(set.execute(intruder, addr.id).await.err(), forbidden);
+        assert_eq!(
+            set.execute(owner, AddressId::generate()).await.err(),
+            Some(DomainError::NotFound("shipping address"))
+        );
         assert_eq!(
             ListAddresses::new(repo).execute(owner).await.unwrap().len(),
             1

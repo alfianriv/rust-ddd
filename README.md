@@ -57,13 +57,16 @@ cargo run -p apis                     # http://localhost:8080, docs at /docs
 | GET | `/health` | - |
 | POST | `/auth/register` | - |
 | POST | `/auth/login` | - |
-| GET, PUT | `/users/{user_id}` | Bearer, owner |
-| GET, POST | `/users/{user_id}/addresses` | Bearer, owner |
-| PUT, DELETE | `/users/{user_id}/addresses/{id}` | Bearer, owner |
-| PUT | `/users/{user_id}/addresses/{id}/default` | Bearer, owner |
+| GET, PUT | `/users/{id}` | Bearer, `{id}` = JWT user |
+| GET, POST | `/addresses` | Bearer (owner = JWT user) |
+| PUT, DELETE | `/addresses/{id}` | Bearer, owner |
+| PUT | `/addresses/{id}/default` | Bearer, owner |
 
-Conventions: no `PATCH` (updates are full-replace `PUT`), no `/me` routes (resources are addressed by id).
-"owner" = `OwnedUser` extractor: `user_id` must be the caller (401 no token, 403 someone else's id).
-An address id that isn't under that user returns 404.
+Conventions:
+- No `PATCH`: updates are full-replace `PUT`.
+- No `/me` and no nested features (`/users/{id}/addresses`): one top-level path per feature.
+- Ownership comes from the JWT `sub`. `/users/{id}`: `OwnedUser` extractor checks `{id}`.
+  Other resources: the use case checks the record's owner (`DomainError::Forbidden`).
+- 401 no/invalid token, 403 someone else's resource, 404 doesn't exist.
 
 Errors are always `{"error": {"code", "message"}}`. OpenAPI spec: `/openapi.json`, UI: `/docs`.

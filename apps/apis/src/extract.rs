@@ -54,9 +54,10 @@ impl FromRequestParts<AppState> for AuthUser {
     }
 }
 
-/// Ownership guard for every route under `/users/{user_id}`: the caller must be that user.
-/// No token -> 401, `user_id` not a UUID -> 400, someone else's `user_id` -> 403.
+/// Ownership guard for `/users/{id}`: `{id}` must be the user in the JWT.
+/// No token -> 401, `{id}` not a UUID -> 400, someone else's id -> 403.
 /// Holds the verified user id; handlers use it instead of reading the path again.
+/// (Other resources, e.g. addresses, check ownership in their use case against `AuthUser`.)
 pub struct OwnedUser(pub UserId);
 
 impl FromRequestParts<AppState> for OwnedUser {
@@ -67,13 +68,13 @@ impl FromRequestParts<AppState> for OwnedUser {
         let params = RawPathParams::from_request_parts(parts, state)
             .await
             .map_err(|r| ApiError::BadRequest(r.body_text()))?;
-        let user_id: uuid::Uuid = params
+        let id: uuid::Uuid = params
             .iter()
-            .find(|(k, _)| *k == "user_id")
+            .find(|(k, _)| *k == "id")
             .and_then(|(_, v)| v.parse().ok())
-            .ok_or_else(|| ApiError::BadRequest("invalid user_id".into()))?;
-        if user_id != caller.0 {
-            return Err(ApiError::Forbidden);
+            .ok_or_else(|| ApiError::BadRequest("invalid user id".into()))?;
+        if id != caller.0 {
+            return Err(DomainError::Forbidden.into());
         }
         Ok(Self(caller))
     }

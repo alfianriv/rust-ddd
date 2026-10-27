@@ -65,9 +65,8 @@ impl ShippingAddressRepository for SeaOrmShippingAddressRepo {
         Ok(rows.into_iter().map(to_domain).collect())
     }
 
-    async fn find_for_user(&self, user: UserId, id: AddressId) -> Result<Option<ShippingAddress>> {
-        Ok(addr::Entity::find()
-            .filter(owned(user, id))
+    async fn find_by_id(&self, id: AddressId) -> Result<Option<ShippingAddress>> {
+        Ok(addr::Entity::find_by_id(id.0)
             .one(&self.db)
             .await
             .map_err(infra)?

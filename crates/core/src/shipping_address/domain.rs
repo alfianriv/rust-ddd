@@ -105,12 +105,12 @@ impl ShippingAddress {
     }
 }
 
-/// Every method is scoped by `user` so one user can never touch another's addresses.
+/// Writes are scoped by `user` as a second guard; use cases check ownership first.
 #[async_trait]
 pub trait ShippingAddressRepository: Send + Sync {
     /// Ordered: default first, then newest first.
     async fn list_by_user(&self, user: UserId) -> Result<Vec<ShippingAddress>>;
-    async fn find_for_user(&self, user: UserId, id: AddressId) -> Result<Option<ShippingAddress>>;
+    async fn find_by_id(&self, id: AddressId) -> Result<Option<ShippingAddress>>;
     async fn count_by_user(&self, user: UserId) -> Result<usize>;
     async fn insert(&self, address: &ShippingAddress) -> Result<()>;
     async fn update(&self, address: &ShippingAddress) -> Result<()>;

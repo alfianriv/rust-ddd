@@ -23,7 +23,7 @@ pub async fn register(
 
 #[utoipa::path(post, path = "/auth/login", tag = "auth", request_body = LoginDto,
     responses(
-        (status = OK, description = "`user.id` is the `user_id` for `/users/{user_id}` routes", body = LoginResponse),
+        (status = OK, description = "`user.id` is the `{id}` for `/users/{id}`", body = LoginResponse),
         (status = UNAUTHORIZED, description = "Wrong email or password", body = ErrorBody),
     ))]
 pub async fn login(
@@ -34,12 +34,12 @@ pub async fn login(
     Ok(Json(out.into()))
 }
 
-#[utoipa::path(get, path = "/users/{user_id}", tag = "users", security(("bearer" = [])),
-    params(("user_id" = uuid::Uuid, Path, description = "Must be the caller's own id")),
+#[utoipa::path(get, path = "/users/{id}", tag = "users", security(("bearer" = [])),
+    params(("id" = uuid::Uuid, Path, description = "Must be the id in the JWT")),
     responses(
         (status = OK, body = UserResponse),
         (status = UNAUTHORIZED, body = ErrorBody),
-        (status = FORBIDDEN, description = "Not your user_id", body = ErrorBody),
+        (status = FORBIDDEN, description = "Not your id", body = ErrorBody),
     ))]
 pub async fn get_user(
     State(c): State<AppState>,
@@ -49,13 +49,13 @@ pub async fn get_user(
     Ok(Json(user.into()))
 }
 
-#[utoipa::path(put, path = "/users/{user_id}", tag = "users", security(("bearer" = [])),
-    params(("user_id" = uuid::Uuid, Path, description = "Must be the caller's own id")),
+#[utoipa::path(put, path = "/users/{id}", tag = "users", security(("bearer" = [])),
+    params(("id" = uuid::Uuid, Path, description = "Must be the id in the JWT")),
     request_body = UpdateUserDto,
     responses(
         (status = OK, body = UserResponse),
         (status = UNAUTHORIZED, body = ErrorBody),
-        (status = FORBIDDEN, description = "Not your user_id", body = ErrorBody),
+        (status = FORBIDDEN, description = "Not your id", body = ErrorBody),
         (status = UNPROCESSABLE_ENTITY, body = ErrorBody),
     ))]
 pub async fn update_user(

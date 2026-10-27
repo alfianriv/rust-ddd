@@ -1,5 +1,5 @@
 /// Single error type for use cases. Apps map variants to transport codes
-/// (HTTP: Validation=422, NotFound=404, Conflict=409, Unauthorized=401, Infra=500).
+/// (HTTP: Validation=422, NotFound=404, Conflict=409, Unauthorized=401, Forbidden=403, Infra=500).
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum DomainError {
     #[error("{0}")]
@@ -10,6 +10,9 @@ pub enum DomainError {
     Conflict(String),
     #[error("unauthorized")]
     Unauthorized,
+    /// The resource exists but belongs to someone else.
+    #[error("forbidden")]
+    Forbidden,
     /// Adapter failure (DB down, etc.). Message is for logs, not for clients.
     #[error("infrastructure error: {0}")]
     Infra(String),
