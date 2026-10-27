@@ -1,0 +1,30 @@
+# Public HTTP API. Auth: JWT bearer.
+[package]
+name = "apis"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+app-core.workspace = true
+axum.workspace = true
+bootstrap.workspace = true
+chrono = { workspace = true, features = ["serde"] }
+serde.workspace = true
+tokio = { workspace = true, features = ["net", "signal"] }
+tower-http.workspace = true
+tracing.workspace = true
+utoipa.workspace = true
+utoipa-axum.workspace = true
+utoipa-scalar.workspace = true
+uuid = { workspace = true, features = ["serde"] }
+
+[dev-dependencies]
+migration.workspace = true
+sea-orm.workspace = true
+serde_json.workspace = true
+tower.workspace = true
+
+[lints]
+workspace = true

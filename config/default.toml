@@ -15,3 +15,9 @@ driver = "jwt"
 # Never commit a real secret. Set APP_TOKEN__SECRET (at least 32 bytes).
 secret = ""
 ttl_secs = 3600
+
+[apis]
+addr = "0.0.0.0:8080"
+request_timeout_secs = 30
+# Browser origins allowed via CORS, e.g. ["https://app.example.com"]. Empty = no CORS.
+cors_allowed_origins = []

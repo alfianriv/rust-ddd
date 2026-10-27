@@ -1,3 +1,6 @@
 # Local development only.
 [token]
 secret = "dev-only-secret-dev-only-secret-dev-only"
+
+[apis]
+cors_allowed_origins = ["http://localhost:3000"]

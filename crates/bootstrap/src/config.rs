@@ -9,6 +9,29 @@ pub struct Config {
     pub database: DatabaseConfig,
     pub password_hasher: PasswordHasherConfig,
     pub token: TokenConfig,
+    /// HTTP server settings for `apps/apis`. Section is optional.
+    #[serde(default)]
+    pub apis: HttpConfig,
+}
+
+/// Per-app HTTP server settings. Each HTTP app gets its own section so they can run side by side.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct HttpConfig {
+    pub addr: String,
+    pub request_timeout_secs: u64,
+    /// Browser origins allowed via CORS. Empty = no CORS headers (same-origin / server-to-server only).
+    pub cors_allowed_origins: Vec<String>,
+}
+
+impl Default for HttpConfig {
+    fn default() -> Self {
+        Self {
+            addr: "0.0.0.0:8080".into(),
+            request_timeout_secs: 30,
+            cors_allowed_origins: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

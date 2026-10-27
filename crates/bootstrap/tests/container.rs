@@ -24,6 +24,7 @@ async fn register_login_and_address_flow() {
             secret: "test-secret-test-secret-test-secret".into(),
             ttl_secs: 60,
         },
+        apis: Default::default(),
     };
     let c = Container::new(&cfg).await.unwrap();
 

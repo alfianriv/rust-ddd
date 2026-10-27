@@ -57,7 +57,7 @@ pub struct User {
 
 impl User {
     pub fn new(email: Email, name: &str, password_hash: String) -> Result<Self> {
-        let now = Utc::now();
+        let now = crate::shared::now();
         Ok(Self {
             id: UserId::generate(),
             email,
@@ -70,7 +70,7 @@ impl User {
 
     pub fn rename(&mut self, name: &str) -> Result<()> {
         self.name = required_text("name", name, 100)?;
-        self.updated_at = Utc::now();
+        self.updated_at = crate::shared::now();
         Ok(())
     }
 }

@@ -10,10 +10,11 @@ crates/infra      adapters: SeaORM repositories, argon2 hasher, JWT tokens
 crates/migration  sea-orm-migration, shared by all apps
 crates/bootstrap  Config (TOML + env), factories (config -> adapter), Container, tracing
 config/           default.toml + {APP_ENV}.toml
+apps/apis         public HTTP API (Axum), JWT auth, OpenAPI docs
 deploy/           deployment placeholder
 ```
 
-Planned: `apps/{apis, apis-internal, reports}`.
+Planned: `apps/{apis-internal, reports}`.
 
 Dependency rule: `apps/* -> bootstrap -> infra -> core`. `core` never depends on axum, sea-orm, redis, etc.
 
@@ -45,4 +46,20 @@ cargo test --workspace                # unit tests; DB tests skipped
 # DB integration tests (use a separate database, they leave test rows behind)
 docker compose exec postgres createdb -U app app_test
 TEST_DATABASE_URL=postgres://app:app@127.0.0.1:5432/app_test cargo test --workspace
+
+cargo run -p apis                     # http://localhost:8080, docs at /docs
 ```
+
+## apis endpoints
+
+| Method | Path | Auth |
+|---|---|---|
+| GET | `/health` | - |
+| POST | `/auth/register` | - |
+| POST | `/auth/login` | - |
+| GET, PATCH | `/me` | Bearer |
+| GET, POST | `/me/addresses` | Bearer |
+| PUT, DELETE | `/me/addresses/{id}` | Bearer |
+| POST | `/me/addresses/{id}/default` | Bearer |
+
+Errors are always `{"error": {"code", "message"}}`. OpenAPI spec: `/openapi.json`, UI: `/docs`.

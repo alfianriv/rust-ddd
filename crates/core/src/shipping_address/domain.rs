@@ -87,7 +87,7 @@ pub struct ShippingAddress {
 
 impl ShippingAddress {
     pub fn new(user_id: UserId, details: AddressDetails, is_default: bool) -> Result<Self> {
-        let now = Utc::now();
+        let now = crate::shared::now();
         Ok(Self {
             id: AddressId::generate(),
             user_id,
@@ -100,7 +100,7 @@ impl ShippingAddress {
 
     pub fn update_details(&mut self, details: AddressDetails) -> Result<()> {
         self.details = details.validated()?;
-        self.updated_at = Utc::now();
+        self.updated_at = crate::shared::now();
         Ok(())
     }
 }

@@ -1,7 +1,6 @@
 [workspace]
 resolver = "3"
-# Apps (apis, apis-internal, reports) join here in later phases.
-members = ["crates/core", "crates/infra", "crates/migration", "crates/bootstrap"]
+members = ["crates/*", "apps/*"]
 
 [workspace.package]
 version = "0.1.0"
@@ -17,6 +16,7 @@ migration = { path = "crates/migration" }
 anyhow = "1"
 argon2 = "0.6"
 async-trait = "0.1"
+axum = { version = "0.8", features = ["macros"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 dotenvy = "0.15"
 figment = { version = "0.10", features = ["toml", "env"] }
@@ -30,10 +30,16 @@ sea-orm = { version = "2.0", default-features = false, features = [
 ] }
 sea-orm-migration = { version = "2.0", features = ["sqlx-postgres", "runtime-tokio-rustls"] }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 thiserror = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.7", features = ["cors", "request-id", "timeout", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+utoipa = { version = "6", features = ["chrono", "uuid"] }
+utoipa-axum = "0.3"
+utoipa-scalar = { version = "0.4", features = ["axum"] }
 uuid = { version = "1", features = ["v7"] }
 
 [workspace.lints.rust]
