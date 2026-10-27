@@ -1,0 +1,3 @@
+# Local development only.
+[token]
+secret = "dev-only-secret-dev-only-secret-dev-only"

@@ -1,0 +1,4 @@
+# Production. Secrets and URLs come from env vars:
+#   APP_DATABASE__URL, APP_TOKEN__SECRET
+[token]
+ttl_secs = 3600

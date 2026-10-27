@@ -1,16 +1,12 @@
 use std::sync::Arc;
 
-use app_core::shared::ports::{PasswordHasher, TokenService};
+use app_core::shared::ports::TokenService;
 use app_core::shipping_address::{
-    AddAddress, DeleteAddress, ListAddresses, SetDefaultAddress, ShippingAddressRepository,
-    UpdateAddress,
+    AddAddress, DeleteAddress, ListAddresses, SetDefaultAddress, UpdateAddress,
 };
-use app_core::user::{GetUser, Login, RegisterUser, UpdateProfile, UserRepository};
-use infra::auth::{Argon2Hasher, JwtTokens};
-use infra::persistence::{SeaOrmShippingAddressRepo, SeaOrmUserRepo};
-use sea_orm::{Database, DatabaseConnection};
+use app_core::user::{GetUser, Login, RegisterUser, UpdateProfile};
 
-use crate::Config;
+use crate::{Config, factory};
 
 /// Every use case, wired once. Apps hold it in an `Arc` and only call `.execute()`.
 pub struct Container {
@@ -31,19 +27,13 @@ pub struct Container {
 
 impl Container {
     pub async fn new(cfg: &Config) -> anyhow::Result<Self> {
-        let db = Database::connect(&cfg.database_url).await?;
-        Ok(Self::with_db(db, cfg))
-    }
+        // Fail fast on bad config before opening DB connections.
+        let tokens = factory::token_service(&cfg.token)?;
+        let hasher = factory::password_hasher(&cfg.password_hasher);
+        let repos = factory::repositories(&cfg.database).await?;
+        let (users, addresses) = (repos.users, repos.addresses);
 
-    pub fn with_db(db: DatabaseConnection, cfg: &Config) -> Self {
-        let users: Arc<dyn UserRepository> = Arc::new(SeaOrmUserRepo::new(db.clone()));
-        let addresses: Arc<dyn ShippingAddressRepository> =
-            Arc::new(SeaOrmShippingAddressRepo::new(db));
-        let hasher: Arc<dyn PasswordHasher> = Arc::new(Argon2Hasher);
-        let tokens: Arc<dyn TokenService> =
-            Arc::new(JwtTokens::new(cfg.jwt_secret.as_bytes(), cfg.jwt_ttl_secs));
-
-        Self {
+        Ok(Self {
             register_user: RegisterUser::new(users.clone(), hasher.clone()),
             login: Login::new(users.clone(), hasher, tokens.clone()),
             get_user: GetUser::new(users.clone()),
@@ -56,6 +46,6 @@ impl Container {
             set_default_address: SetDefaultAddress::new(addresses),
 
             tokens,
-        }
+        })
     }
 }

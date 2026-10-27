@@ -1,6 +1,7 @@
 //! Real adapters end to end: Postgres + argon2 + JWT. Same skip rule as infra's DB test.
 use app_core::shipping_address::AddressDetails;
 use app_core::user::{RegisterInput, UserId};
+use bootstrap::config::{DatabaseConfig, PasswordHasherConfig, TokenConfig};
 use bootstrap::{Config, Container};
 use migration::{Migrator, MigratorTrait};
 
@@ -14,14 +15,17 @@ async fn register_login_and_address_flow() {
         eprintln!("skipped: set TEST_DATABASE_URL to run DB tests");
         return;
     };
+    let db = sea_orm::Database::connect(&url).await.unwrap();
+    Migrator::up(&db, None).await.unwrap();
     let cfg = Config {
-        database_url: url,
-        jwt_secret: "test-secret-test-secret-test-secret".into(),
-        jwt_ttl_secs: 60,
+        database: DatabaseConfig::Postgres { url },
+        password_hasher: PasswordHasherConfig::Argon2,
+        token: TokenConfig::Jwt {
+            secret: "test-secret-test-secret-test-secret".into(),
+            ttl_secs: 60,
+        },
     };
     let c = Container::new(&cfg).await.unwrap();
-    let db = sea_orm::Database::connect(&cfg.database_url).await.unwrap();
-    Migrator::up(&db, None).await.unwrap();
 
     let email = format!("{}@test.local", UserId::generate().0.simple());
     let user = c

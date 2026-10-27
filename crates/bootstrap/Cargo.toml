@@ -1,4 +1,4 @@
-# Config + wiring shared by every app: build the Container once, apps only call use cases.
+# Config + factories + wiring shared by every app: build the Container once, apps only call use cases.
 [package]
 name = "bootstrap"
 version.workspace = true
@@ -9,11 +9,14 @@ publish.workspace = true
 anyhow.workspace = true
 app-core.workspace = true
 dotenvy.workspace = true
+figment.workspace = true
 infra.workspace = true
 sea-orm.workspace = true
+serde.workspace = true
 tracing-subscriber.workspace = true
 
 [dev-dependencies]
+figment = { workspace = true, features = ["test"] }
 migration.workspace = true
 tokio.workspace = true
 

@@ -1,5 +1,6 @@
-mod config;
+pub mod config;
 mod container;
+pub mod factory;
 
 pub use config::Config;
 pub use container::Container;

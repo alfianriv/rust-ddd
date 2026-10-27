@@ -1,0 +1,17 @@
+# Base config for every app and environment.
+# Load order (later wins): default.toml -> {APP_ENV}.toml -> APP_* env vars.
+# Env override: section + "__" + key, e.g. APP_TOKEN__SECRET, APP_DATABASE__URL.
+# Each section picks its adapter with `driver`; the factory in crates/bootstrap builds it.
+
+[database]
+driver = "postgres"
+url = "postgres://app:app@127.0.0.1:5432/app"
+
+[password_hasher]
+driver = "argon2"
+
+[token]
+driver = "jwt"
+# Never commit a real secret. Set APP_TOKEN__SECRET (at least 32 bytes).
+secret = ""
+ttl_secs = 3600
